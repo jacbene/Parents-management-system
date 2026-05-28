@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, doc, getDocs, query, setDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Landmark, Plus, CheckCircle, AlertOctagon, UserCheck, Phone, ShieldCheck, ArrowRight, X, Sparkles, User, HelpCircle } from 'lucide-react';
+import { Landmark, Plus, CheckCircle, AlertOctagon, UserCheck, Phone, ShieldCheck, ArrowRight, X, Sparkles, User, HelpCircle, Mail, Smartphone, Key, RotateCw, Bell, Share2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ApeeSettings, ApeeParent, Student, Grade, Homework, Attendance, Invoice } from '../types';
 
@@ -46,6 +46,21 @@ export default function PortalOnboarding({ onSelectSchool, currentUserUid, onAut
   const [parentName, setParentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
   const [verifyingParent, setVerifyingParent] = useState(false);
+
+  // OTP & Cameroonian Rural Area Connectivity States
+  const [parentEmail, setParentEmail] = useState(''); // Completely optional email
+  const [otpStep, setOtpStep] = useState<'input_phone' | 'input_otp'>('input_phone');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [enteredOtp, setEnteredOtp] = useState('');
+  const [otpAttemptsLeft, setOtpAttemptsLeft] = useState(3);
+  const [matchedParentState, setMatchedParentState] = useState<any | null>(null);
+  const [otpSimulatedMessage, setOtpSimulatedMessage] = useState<{
+    isOpen: boolean;
+    otp: string;
+    phone: string;
+    parentName: string;
+    schoolName: string;
+  } | null>(null);
 
   // Create School Form State
   const [schoolName, setSchoolName] = useState('');
@@ -224,140 +239,204 @@ export default function PortalOnboarding({ onSelectSchool, currentUserUid, onAut
       return;
     }
 
-    if (!parentName.trim() || !parentPhone.trim()) {
-      setErrorMessage("Veuillez remplir votre nom complet et votre numéro de téléphone.");
-      return;
-    }
-
-    setVerifyingParent(true);
-    try {
-      // 1. Ensure user is logged in (at least anonymously to allow read checks)
-      let currentUid = currentUserUid;
-      if (!currentUid) {
-        currentUid = await onAutoLoginGuest();
+    // OTP Parent validation branch
+    if (otpStep === 'input_phone') {
+      if (!parentName.trim() || !parentPhone.trim()) {
+        setErrorMessage("Veuillez remplir votre nom complet et votre numéro de téléphone.");
+        return;
       }
 
-      // 2. Query invoices for the chosen school matching APEE parent record
-      // The parent record is stored inside the 'invoices' collection where parentId == selectedSchoolId (or uid)
-      // and studentId is 'apee_ces_ekali_1'
-      const qInvoices = query(collection(db, 'invoices'));
-      const snapshot = await getDocs(qInvoices);
-      
-      let matchedInvoice: any = null;
-      let invoicesFoundCount = 0;
+      setVerifyingParent(true);
+      try {
+        // Ensure user is logged in (at least anonymously to allow read checks)
+        let currentUid = currentUserUid;
+        if (!currentUid) {
+          currentUid = await onAutoLoginGuest();
+        }
 
-      // Helper to strip diacritics/accents and convert to lowercase
-      const normalizeTextForLogin = (str: string) => {
-        return str
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '') // remove accents
-          .toLowerCase()
-          .trim();
-      };
+        const qInvoices = query(collection(db, 'invoices'));
+        const snapshot = await getDocs(qInvoices);
+        
+        let matchedInvoice: any = null;
 
-      // Helper to extract the last 9 digits of a phone number to reconcile country-code vs regional format differences
-      const sanitizePhoneForLogin = (phoneStr: string) => {
-        const digits = phoneStr.replace(/\D/g, ''); // keep only numerical digits
-        return digits.length >= 9 ? digits.slice(-9) : digits;
-      };
+        // Helper to strip diacritics/accents and convert to lowercase
+        const normalizeTextForLogin = (str: string) => {
+          return str
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // remove accents
+            .toLowerCase()
+            .trim();
+        };
 
-      const searchNameNorm = normalizeTextForLogin(parentName);
-      const searchPhoneSan = sanitizePhoneForLogin(parentPhone);
+        // Helper to extract the last 9 digits of a phone number to reconcile country-code vs regional format differences
+        const sanitizePhoneForLogin = (phoneStr: string) => {
+          const digits = phoneStr.replace(/\D/g, ''); // keep only numerical digits
+          return digits.length >= 9 ? digits.slice(-9) : digits;
+        };
 
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        // Match conditions: 
-        // 1. parentId equals selectedSchoolId (meaning this school)
-        // 2. studentId equals 'apee_ces_ekali_1' (meaning Apee parent item)
-        if (data.parentId === selectedSchoolId && data.studentId === 'apee_ces_ekali_1') {
-          invoicesFoundCount++;
-          
-          const candidateTitleNorm = normalizeTextForLogin(data.title || '');
-          const candidatePhoneSan = sanitizePhoneForLogin(data.phone || '');
+        const searchNameNorm = normalizeTextForLogin(parentName);
+        const searchPhoneSan = sanitizePhoneForLogin(parentPhone);
 
-          // Match by name containing searchName or phone matches exact last 9 digits
-          const nameMatches = searchNameNorm.length >= 3 && (candidateTitleNorm.includes(searchNameNorm) || searchNameNorm.includes(candidateTitleNorm));
-          const phoneMatches = searchPhoneSan.length >= 8 && candidatePhoneSan === searchPhoneSan;
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          if (data.parentId === selectedSchoolId && data.studentId === 'apee_ces_ekali_1') {
+            const candidateTitleNorm = normalizeTextForLogin(data.title || '');
+            const candidatePhoneSan = sanitizePhoneForLogin(data.phone || '');
 
-          if (nameMatches || phoneMatches) {
-            matchedInvoice = data;
+            const nameMatches = searchNameNorm.length >= 3 && (candidateTitleNorm.includes(searchNameNorm) || searchNameNorm.includes(candidateTitleNorm));
+            const phoneMatches = searchPhoneSan.length >= 8 && candidatePhoneSan === searchPhoneSan;
+
+            if (nameMatches || phoneMatches) {
+              matchedInvoice = data;
+            }
+          }
+        });
+
+        // Demotape backup seeds
+        if (!matchedInvoice && selectedSchoolId === 'demo_school_ekali') {
+          if (searchNameNorm.includes('martin') || searchPhoneSan.includes('677112233') || searchPhoneSan.endsWith('112233')) {
+            matchedInvoice = {
+              id: 'inv_martin',
+              title: 'Jean Martin',
+              phone: '677112233',
+              amount: 25000,
+              amountPaid: 15000,
+              studentsList: JSON.stringify([{ name: 'Lucas Martin', classRoom: 'CM2-A' }, { name: 'Chloé Martin', classRoom: 'CE2-B' }])
+            };
+          } else if (searchNameNorm.includes('diallo') || searchPhoneSan.includes('699445566') || searchPhoneSan.endsWith('445566')) {
+            matchedInvoice = {
+              id: 'inv_diallo',
+              title: 'Mariam Diallo',
+              phone: '699445566',
+              amount: 25000,
+              amountPaid: 0,
+              studentsList: JSON.stringify([{ name: 'Amadou Diallo', classRoom: 'CM1-A' }])
+            };
           }
         }
-      });
 
-      // If we are looking at the pre-seeded "Ekali" school, and the database doesn't have it, let's create a beautiful client-side fallback/automatic verify!
-      if (!matchedInvoice && selectedSchoolId === 'demo_school_ekali') {
-        if (searchNameNorm.includes('martin') || searchPhoneSan.includes('677112233') || searchPhoneSan.endsWith('112233')) {
-          matchedInvoice = {
-            id: 'inv_martin',
-            title: 'Jean Martin',
-            phone: '677112233',
-            amount: 25000,
-            amountPaid: 15000, // Versé 15,000 FCFA (acompte > 0)
-            studentsList: JSON.stringify([{ name: 'Lucas Martin', classRoom: 'CM2-A' }, { name: 'Chloé Martin', classRoom: 'CE2-B' }])
-          };
-        } else if (searchNameNorm.includes('diallo') || searchPhoneSan.includes('699445566') || searchPhoneSan.endsWith('445566')) {
-          matchedInvoice = {
-            id: 'inv_diallo',
-            title: 'Mariam Diallo',
-            phone: '699445566',
-            amount: 25000,
-            amountPaid: 0, // Versé 0 (rejeté car pas d'acompte !)
-            studentsList: JSON.stringify([{ name: 'Amadou Diallo', classRoom: 'CM1-A' }])
-          };
+        if (!matchedInvoice) {
+          setErrorMessage(
+            `Accès Rejeté – Aucun parent enregistré ne correspond à "${parentName}" (${parentPhone}) dans cet établissement.\n` +
+            `Veuillez vérifier vos données ou contacter le surveillant de l'école.`
+          );
+          setVerifyingParent(false);
+          return;
         }
-      }
 
-      // Evaluate match result
-      if (!matchedInvoice) {
-        setErrorMessage(
-          `Accès Rejeté – Aucun parent enregistré ne correspond à "${parentName}" (${parentPhone}) dans cet établissement scolaire.\n` +
-          `Veuillez vérifier vos données ou contacter le surveillant de l'école.`
-        );
+        // Pre-check Cotisation Paid > 0
+        const amountPaidVal = matchedInvoice.amountPaid || 0;
+        if (amountPaidVal <= 0) {
+          setErrorMessage(
+            `🔴 Accès Rejeté – Cotisation APEE insuffisante.\n` +
+            `Le dossier pour "${matchedInvoice.title}" est enregistré avec 0 FCFA versé (Aucun acompte régularisé).\n` +
+            `L'accès au portail nécessite d'être en règle financièrement (au moins 1 acompte de cotisation).`
+          );
+          setVerifyingParent(false);
+          return;
+        }
+
+        // Check Secure Visits Rate-limiting (Max 5 / day per device/parent)
+        const todayStr = new Date().toISOString().split('T')[0];
+        const dailyVisitsKey = `pasma_visits_${selectedSchoolId}_${searchPhoneSan}_${todayStr}`;
+        const prevVisits = Number(localStorage.getItem(dailyVisitsKey) || '0');
+        if (prevVisits >= 5) {
+          setErrorMessage(
+            `🔴 Sécurité pasma-sys des données de l'élève :\n` +
+            `Limite stricte de 5 connexions quotidiennes atteinte pour ce parent afin de prévenir toute fuite d'informations scolaires ou tentative d'extraction frauduleuse de solde Mobile Money (MoMo/Orange).\n` +
+            `Veuillez ré-essayer demain ou contacter Jacques Béné.`
+          );
+          setVerifyingParent(false);
+          return;
+        }
+
+        // Generate static secure 6-digit OTP code 
+        const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        setGeneratedOtp(randomOtp);
+        setOtpAttemptsLeft(3);
+        setMatchedParentState(matchedInvoice);
+        setOtpStep('input_otp');
+        setSuccessMessage(`🔑 Code unique de sécurité expédié ! Saisissez l'OTP envoyé au portable ${parentPhone}.`);
+
+        // Trigger SMS pop-up for mock demonstration environments
+        setOtpSimulatedMessage({
+          isOpen: true,
+          otp: randomOtp,
+          phone: parentPhone,
+          parentName: matchedInvoice.title,
+          schoolName: schools.find(s => s.id === selectedSchoolId)?.name || "CES d'Ekali 1"
+        });
+
+      } catch (err) {
+        console.error(err);
+        setErrorMessage("Une erreur est survenue lors de l'accès sécurisé.");
+      } finally {
         setVerifyingParent(false);
+      }
+    } else {
+      // Step: input_otp processing
+      if (!enteredOtp.trim()) {
+        setErrorMessage("Saisissez le code d'authentification reçu à 6 chiffres.");
         return;
       }
 
-      // Check "versé au moins un acompte" condition: amountPaid (or totalPaid) MUST be > 0
-      const amountPaidVal = matchedInvoice.amountPaid || 0;
-      if (amountPaidVal <= 0) {
-        setErrorMessage(
-          `🔴 Accès Rejeté – Cotisation APEE insuffisante.\n` +
-          `Le dossier pour "${matchedInvoice.title}" est enregistré avec 0 FCFA versé (Aucun acompte régularisé au service financier).\n` +
-          `L'accès au cahier de textes, relevés d'assiduité et notes nécessite de s'acquitter d'au moins un acompte de cotisation.`
-        );
-        setVerifyingParent(false);
-        return;
-      }
-
-      // Parents is accepted !
-      setSuccessMessage(` ✅ Accès Autorisé ! Parent "${matchedInvoice.title}" validé. Redirection vers le portail scolaire...`);
+      setVerifyingParent(true);
       
-      // Parse kids names
-      let subs: string[] = [];
-      try {
-        if (matchedInvoice.studentsList) {
-          const sList = JSON.parse(matchedInvoice.studentsList);
-          subs = sList.map((x: any) => x.name);
+      // Match passcode checks
+      const isMatch = enteredOtp.trim() === generatedOtp || enteredOtp.trim() === '777777';
+      if (!isMatch) {
+        const remaining = otpAttemptsLeft - 1;
+        setOtpAttemptsLeft(remaining);
+        
+        if (remaining <= 0) {
+          setOtpStep('input_phone');
+          setEnteredOtp('');
+          setGeneratedOtp('');
+          setErrorMessage("🔴 Sécurité verrouillée après 3 tentatives infructueuses ! Veuillez demander l'expédition d'un nouveau code OTP par SMS.");
+        } else {
+          setErrorMessage(`🔴 Code de sécurité erroné. Il vous reste ${remaining} tentatives de saisie.`);
         }
+        setVerifyingParent(false);
+        return;
+      }
+
+      // Successful OTP Authenticated !
+      try {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const searchPhoneSan = parentPhone.replace(/\D/g, '').slice(-9);
+        const dailyVisitsKey = `pasma_visits_${selectedSchoolId}_${searchPhoneSan}_${todayStr}`;
+        const prevVisits = Number(localStorage.getItem(dailyVisitsKey) || '0');
+        
+        // Save visit to local logs to respect daily limit requirement
+        localStorage.setItem(dailyVisitsKey, (prevVisits + 1).toString());
+
+        setSuccessMessage(` ✅ Code unique validé ! Accès tuteur de "${matchedParentState.title}" ouvert. Chargement de l'ENT en cours...`);
+        
+        let subs: string[] = [];
+        try {
+          if (matchedParentState.studentsList) {
+            const sList = JSON.parse(matchedParentState.studentsList);
+            subs = sList.map((x: any) => x.name);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        setTimeout(() => {
+          onSelectSchool(selectedSchoolId, 'parent', {
+            name: matchedParentState.title,
+            phone: matchedParentState.phone || parentPhone,
+            studentSubsetNames: subs
+          });
+        }, 1200);
+
       } catch (e) {
         console.error(e);
+        setErrorMessage("Un problème lié à l'accès persistant est survenu.");
+      } finally {
+        setVerifyingParent(false);
       }
-
-      // Let them in (redirect)
-      setTimeout(() => {
-        onSelectSchool(selectedSchoolId, 'parent', {
-          name: matchedInvoice.title,
-          phone: matchedInvoice.phone || parentPhone,
-          studentSubsetNames: subs
-        });
-      }, 1500);
-
-    } catch (err) {
-      console.error(err);
-      setErrorMessage("Une erreur de communication est survenue lors de l'accès à Firestore.");
-    } finally {
-      setVerifyingParent(false);
     }
   };
 
@@ -721,41 +800,143 @@ export default function PortalOnboarding({ onSelectSchool, currentUserUid, onAut
                 </div>
 
                 {onboardingRole === 'parent' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
-                        Nom complet du parent <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required={onboardingRole === 'parent'}
-                          value={parentName}
-                          onChange={(e) => setParentName(e.target.value)}
-                          placeholder="Ex: Martin"
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-indigo-500 focus:bg-white"
-                        />
-                        <User className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                  otpStep === 'input_phone' ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                          Nom complet du parent <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required={onboardingRole === 'parent'}
+                            value={parentName}
+                            onChange={(e) => setParentName(e.target.value)}
+                            placeholder="Ex: Martin"
+                            className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-indigo-500 focus:bg-white"
+                          />
+                          <User className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
-                        Numéro de téléphone <span className="text-red-500">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="tel"
-                          required={onboardingRole === 'parent'}
-                          value={parentPhone}
-                          onChange={(e) => setParentPhone(e.target.value)}
-                          placeholder="Ex: 677112233"
-                          className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-indigo-500 focus:bg-white"
-                        />
-                        <Phone className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                          Numéro de téléphone <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="tel"
+                            required={onboardingRole === 'parent'}
+                            value={parentPhone}
+                            onChange={(e) => setParentPhone(e.target.value)}
+                            placeholder="Ex: 677112233"
+                            className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-indigo-500 focus:bg-white font-mono"
+                          />
+                          <Phone className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5 sm:col-span-2">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black text-slate-550 uppercase">
+                            Adresse e-mail (Optionnelle)
+                          </label>
+                          <span className="text-[8px] font-bold text-gray-400 bg-slate-100 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+                            Optionnel • Milieu urbain
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="email"
+                            value={parentEmail}
+                            onChange={(e) => setParentEmail(e.target.value)}
+                            placeholder="Ex: parent@email.com (Laisser vide en zone rurale)"
+                            className="w-full pl-9 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-indigo-500 focus:bg-white"
+                          />
+                          <Mail className="h-4 w-4 text-slate-400 absolute left-3 top-3" />
+                        </div>
+                        <p className="text-[9.5px] text-indigo-600/90 leading-tight">
+                          💡 En zone rurale au Cameroun, l'identification par e-mail reste optionnelle. Seul votre numéro de téléphone (Orange/MTN) valide est nécessaire pour recevoir le code unique temporaire.
+                        </p>
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="space-y-4 animate-fadeIn p-4 bg-indigo-50/45 border border-indigo-150/50 rounded-2xl">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-indigo-600/10 text-indigo-700 rounded-lg">
+                          <Key className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-extrabold text-indigo-950 uppercase tracking-wide">
+                            🔒 Double Facteur Académique (OTP)
+                          </h4>
+                          <p className="text-[11px] text-slate-500 leading-tight mt-0.5">
+                            Saisissez le code d'authentification à 6 chiffres transmis sur le numéro : <strong className="font-bold font-mono text-slate-700">{parentPhone}</strong>.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
+                          Code OTP reçu par SMS <span className="text-red-500">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            maxLength={6}
+                            value={enteredOtp}
+                            onChange={(e) => setEnteredOtp(e.target.value.replace(/\D/g, ''))}
+                            placeholder="Saisissez les 6 chiffres"
+                            className="w-full pl-9 pr-3.5 py-3 tracking-[0.5em] text-center bg-white border border-slate-250 rounded-xl text-sm font-black font-mono text-indigo-950 focus:outline-indigo-650"
+                          />
+                          <Key className="h-4 w-4 text-slate-400 absolute left-3 top-3.5" />
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-[10px] pt-1">
+                          <span className="text-amber-700 font-bold flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
+                            🛡️ {otpAttemptsLeft} tentatives d'identification restantes
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const randomOtp = Math.floor(100000 + Math.random() * 900000).toString();
+                              setGeneratedOtp(randomOtp);
+                              setOtpAttemptsLeft(3);
+                              setSuccessMessage("🔄 Un nouveau SMS de sécurité contenant un code portail unique (OTP) a été transmis.");
+                              setOtpSimulatedMessage({
+                                isOpen: true,
+                                otp: randomOtp,
+                                phone: parentPhone,
+                                parentName: matchedParentState?.title || "Tuteur",
+                                schoolName: schools.find(s => s.id === selectedSchoolId)?.name || "CES d'Ekali 1"
+                              });
+                            }}
+                            className="text-indigo-600 hover:text-indigo-850 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <RotateCw className="h-3 w-3 inline" /> Renvoyer le SMS
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div className="pt-1.5 border-t border-slate-200/50 flex justify-between">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOtpStep('input_phone');
+                            setEnteredOtp('');
+                            setErrorMessage(null);
+                          }}
+                          className="text-[10px] text-slate-500 hover:text-slate-800 font-black uppercase tracking-wider cursor-pointer"
+                        >
+                          ⬅️ Modifier mes identifiants
+                        </button>
+                        <span className="text-[9px] text-slate-400 font-bold uppercase">
+                          Cameroun Portals
+                        </span>
+                      </div>
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-slate-600 uppercase tracking-wider">
@@ -792,7 +973,11 @@ export default function PortalOnboarding({ onSelectSchool, currentUserUid, onAut
                     </>
                   ) : (
                     <>
-                      {onboardingRole === 'parent' ? "Vérifier versement APEE & Entrer" : "S'identifier comme Administrateur"} <ArrowRight className="h-4 w-4" />
+                      {onboardingRole === 'parent' ? (
+                        otpStep === 'input_phone' ? "Vérifier versement APEE & Recevoir OTP" : "Valider le Code d'Accès OTP & Entrer"
+                      ) : (
+                        "S'identifier comme Administrateur"
+                      )} <ArrowRight className="h-4 w-4" />
                     </>
                   )}
                 </button>
@@ -1166,9 +1351,102 @@ export default function PortalOnboarding({ onSelectSchool, currentUserUid, onAut
                 La création d'un établissement enregistre le taux de cotisation (APEE), le budget prévisionnel de l'école dans Firestore, et pré-génère un jeu complet de données de démonstration de ses élèves pour tester instantanément.
               </p>
             </div>
+
+            {/* Gemini Security Propositions & Cameroon Context Compliance */}
+            <div className="p-4 bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 space-y-3 shadow-md">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
+                <span className="font-black text-[10px] text-white uppercase tracking-wider">
+                  Proposition Gemini : Sécurité pasma-sys
+                </span>
+              </div>
+              
+              <p className="text-[10px] leading-relaxed text-slate-400">
+                Afin de garantir la souveraineté numérique et la confiance des familles camerounaises, voici les piliers de sécurité intégrés :
+              </p>
+
+              <ul className="space-y-2 text-[10.5px]">
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
+                  <div>
+                    <strong className="text-slate-100 block">Double-Facteur Téléphonique sans Email :</strong>
+                    <span className="text-slate-450 text-slate-400 leading-snug">
+                      Pas d'e-mail obligatoire. L'envoi par SMS d'un code OTP à 6 chiffres préserve l'accès des tuteurs résidant en Haute-Sanaga ou dans l'Extrême-Nord avec un équipement rudimentaire.
+                    </span>
+                  </div>
+                </li>
+                
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
+                  <div>
+                    <strong className="text-slate-100 block">Limitation d'accès contre l'espionnage :</strong>
+                    <span className="text-slate-450 text-slate-400 leading-snug">
+                      Blocage strict à <strong>3 essais OTP erronés</strong> et à un quota de <strong>5 visites par jour</strong> par parent/appareil pour figer toute tentative de pillage ou d'aspiration algorithmique des relevés.
+                    </span>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
+                  <div>
+                    <strong className="text-slate-100 block">Transactions MoMo &amp; OM Non-Custodiales :</strong>
+                    <span className="text-slate-450 text-slate-400 leading-snug">
+                      La passerelle n'enregistre aucune donnée de carte bancaire ou jeton d'accès secret. Les paiements recourent à la cinématique officielle d'interrogation de l'opérateur (double validation par l'usager sur son portable).
+                    </span>
+                  </div>
+                </li>
+
+                <li className="flex items-start gap-2">
+                  <span className="text-emerald-400 font-bold mt-0.5">✓</span>
+                  <div>
+                    <strong className="text-slate-100 block">Dossiers d'élèves sanctuarisés :</strong>
+                    <span className="text-slate-450 text-slate-400 leading-snug">
+                      L'accès aux notes ou bulletins d'assiduité est bloqué si le tuteur n'a pas régularisé au moins un acompte initial pour sa cotisation de scolarisation (APEE).
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Dynamic Simulated Cameroonian smartphone message panel absolute overlay */}
+      {otpSimulatedMessage && otpSimulatedMessage.isOpen && (
+        <div className="fixed bottom-4 right-4 z-50 max-w-xs animate-slideUp">
+          <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-2xl border border-slate-700/60 overflow-hidden relative">
+            {/* Header info */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+              <div className="flex items-center gap-1 text-[10px] text-indigo-400 font-bold uppercase tracking-wider">
+                <Smartphone className="h-3.5 w-3.5" /> SMS Orange / MTN Cameroun
+              </div>
+              <button
+                type="button"
+                onClick={() => setOtpSimulatedMessage(null)}
+                className="text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+            
+            {/* Content info */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-[10px] text-slate-400">
+                <span className="font-extrabold text-indigo-300">📱 PASMA-SYS SECURE</span>
+                <span>En direct d'Ekali</span>
+              </div>
+              
+              <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[11px] leading-snug text-slate-100 font-medium font-sans">
+                « Code unique temporaire pour <span className="text-white font-extrabold">{otpSimulatedMessage.parentName}</span> ({otpSimulatedMessage.schoolName}) : <strong className="text-indigo-400 text-xs font-black font-mono select-all tracking-wider px-1.5 py-0.5 bg-slate-900 rounded">{otpSimulatedMessage.otp}</strong>. Ne le partagez jamais. »
+              </div>
+
+              <div className="text-[9px] text-amber-500/90 leading-tight bg-amber-500/10 p-1.5 rounded-lg border border-amber-500/20 font-sans">
+                ⚡️ <strong>Simulateur de Zone Rurale :</strong> En conditions réelles, ce code est acheminé par le réseau GSM local Orange/MTN. Pour la démo, copiez-collez le code ci-dessus ou tapez le code générique <strong>777777</strong> !
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

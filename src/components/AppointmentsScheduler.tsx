@@ -52,7 +52,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
       subject,
       dateTime,
       status: 'Scheduled',
-      notes: notes || undefined
+      notes: notes || ""
     };
 
     try {
@@ -163,27 +163,27 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
       {/* Booking Consultation Modal Form */}
       <AnimatePresence>
         {showForm && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-55 overflow-y-auto">
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-white rounded-3xl w-full max-w-lg border border-gray-100 shadow-2xl overflow-hidden"
+              className="bg-white rounded-3xl w-full max-w-lg border border-gray-100 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col my-auto"
             >
-              <div className="p-5 bg-indigo-600 text-white flex items-center justify-between">
+              <div className="p-5 bg-indigo-600 text-white flex items-center justify-between shrink-0">
                 <div>
                   <h3 className="text-lg font-black">Planifier un Rendez-vous</h3>
                   <p className="text-xs text-indigo-100">Négociez une période de rencontre avec un enseignant.</p>
                 </div>
                 <button
                   onClick={() => setShowForm(false)}
-                  className="text-white/60 hover:text-white cursor-pointer"
+                  className="text-white/60 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-indigo-700/50 transition shrink-0"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateAppointment} className="p-6 space-y-4">
+              <form onSubmit={handleCreateAppointment} className="p-6 space-y-4 overflow-y-auto flex-1">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-gray-600">Sélectionner l'élève</label>
@@ -200,7 +200,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                           setSubject(`Consultation de bilan - ${studentObj.name}`);
                         }
                       }}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 bg-white"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 bg-white text-gray-800"
                     >
                       <option value="">-- Choisir un enfant --</option>
                       {students.map(s => (
@@ -217,7 +217,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                       placeholder="M. Jean Picard"
                       value={teacherName}
                       onChange={(e) => setTeacherName(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 text-gray-800"
                     />
                   </div>
                 </div>
@@ -230,7 +230,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                     placeholder="Bilan pédagogique trimestriel"
                     value={subject}
                     onChange={(e) => setSubject(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 border border-gray-250 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 text-gray-800"
                   />
                 </div>
 
@@ -242,7 +242,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                       required
                       value={dateStr}
                       onChange={(e) => setDateStr(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 text-gray-800"
                     />
                   </div>
 
@@ -253,7 +253,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                       required
                       value={timeStr}
                       onChange={(e) => setTimeStr(e.target.value)}
-                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500"
+                      className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 text-gray-800"
                     />
                   </div>
                 </div>
@@ -265,15 +265,15 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                     placeholder="Précisez les points que vous souhaitez aborder durant l'entretien..."
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500"
+                    className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-sm focus:outline-hidden focus:border-indigo-500 text-gray-800"
                   />
                 </div>
 
-                <div className="pt-2">
+                <div className="pt-2 sticky bottom-0 bg-white">
                   <button
                     type="submit"
                     disabled={processing}
-                    className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 bg-indigo-600 text-white font-bold text-xs rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer shadow-xs"
                   >
                     {processing ? (
                       <>
@@ -281,7 +281,7 @@ export default function AppointmentsScheduler({ appointments, students, onAddApp
                         Envoi de la demande...
                       </>
                     ) : (
-                      'Consigner la Demande d\'Entretien'
+                      "Consigner la Demande d'Entretien"
                     )}
                   </button>
                 </div>

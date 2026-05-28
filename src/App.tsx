@@ -1604,7 +1604,14 @@ export default function App() {
 
                     {activeTab === 'messages' && (
                       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} key="messages">
-                        <MessageInbox messages={messages} students={students} onAddMessage={handleAddMessageInPlace} />
+                        <MessageInbox 
+                          messages={messages} 
+                          students={students} 
+                          onAddMessage={handleAddMessageInPlace} 
+                          apeeParents={apeeParents} 
+                          portalUserRole={portalUserRole}
+                          apeeSettings={apeeSettings}
+                        />
                       </motion.div>
                     )}
                   </AnimatePresence>
