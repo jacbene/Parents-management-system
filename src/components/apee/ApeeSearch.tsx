@@ -6,7 +6,7 @@ import { jsPDF } from 'jspdf';
 interface ApeeSearchProps {
   parents: ApeeParent[];
   onEditParentRequest: (parent: ApeeParent) => void;
-  onDeleteParent: (id: string) => void;
+  onDeleteParent: (id: string) => Promise<boolean> | void;
   settings?: any;
 }
 
@@ -17,6 +17,7 @@ export default function ApeeSearch({ parents, onEditParentRequest, onDeleteParen
   
   // Active detail modal/card selection
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Filter list of parents
   const filteredParents = parents.filter(p => {
@@ -38,11 +39,24 @@ export default function ApeeSearch({ parents, onEditParentRequest, onDeleteParen
 
   const selectedParent = parents.find(p => p.id === selectedParentId);
 
-  const handleDeleteClick = (id: string) => {
+  const handleDeleteClick = async (id: string) => {
     if (confirm("Êtes-vous sûr de vouloir supprimer définitivement ce parent d'élève ainsi que l'ensemble de ses cotisations ? Cette action est irréversible.")) {
-      onDeleteParent(id);
-      if (selectedParentId === id) {
-        setSelectedParentId(null);
+      setIsDeleting(true);
+      try {
+        const res = onDeleteParent(id);
+        let success = true;
+        if (res && res instanceof Promise) {
+          success = await res;
+        }
+        if (success) {
+          if (selectedParentId === id) {
+            setSelectedParentId(null);
+          }
+        }
+      } catch (err) {
+        console.error("Erreur de suppression du parent d'élève:", err);
+      } finally {
+        setIsDeleting(false);
       }
     }
   };
@@ -586,7 +600,12 @@ export default function ApeeSearch({ parents, onEditParentRequest, onDeleteParen
               <div className="grid grid-cols-2 gap-2 border-t pt-3">
                 <button
                   onClick={() => onEditParentRequest(selectedParent)}
-                  className="px-2.5 py-1.5 text-xs font-semibold bg-slate-105 border hover:bg-slate-150 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition select-none"
+                  disabled={isDeleting}
+                  className={`px-2.5 py-1.5 text-xs font-semibold border rounded-lg flex items-center justify-center gap-1 transition select-none ${
+                    isDeleting
+                      ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                      : 'bg-slate-105 hover:bg-slate-150 text-slate-700 cursor-pointer'
+                  }`}
                   title="Modifier la fiche parent"
                 >
                   <Edit2 className="h-3.5 w-3.5 text-slate-700" /> Modifier
@@ -594,10 +613,24 @@ export default function ApeeSearch({ parents, onEditParentRequest, onDeleteParen
 
                 <button
                   onClick={() => handleDeleteClick(selectedParent.id)}
-                  className="px-2.5 py-1.5 text-xs font-semibold bg-red-50 text-red-650 hover:bg-red-100 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition select-none border border-red-200"
+                  disabled={isDeleting}
+                  className={`px-2.5 py-1.5 text-xs font-semibold border rounded-lg flex items-center justify-center gap-1 transition select-none ${
+                    isDeleting
+                      ? 'bg-red-50 text-red-400 border-red-100 cursor-not-allowed'
+                      : 'bg-red-50 text-red-650 hover:bg-red-100 border-red-200 cursor-pointer'
+                  }`}
                   title="Supprimer la fiche parent"
                 >
-                  <Trash2 className="h-3.5 w-3.5 text-red-600" /> Supprimer
+                  {isDeleting ? (
+                    <>
+                      <span className="animate-spin inline-block h-3.5 w-3.5 border-2 border-red-600 border-t-transparent rounded-full" />
+                      Suppression...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" /> Supprimer
+                    </>
+                  )}
                 </button>
               </div>
 

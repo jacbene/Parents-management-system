@@ -701,8 +701,8 @@ export default function App() {
     return true;
   };
 
-  const handleDeleteApeeParentInPlace = async (id: string) => {
-    if (!await checkApeeAuthorization()) return;
+  const handleDeleteApeeParentInPlace = async (id: string): Promise<boolean> => {
+    if (!await checkApeeAuthorization()) return false;
     if (activeParentToEdit?.id === id) {
       setActiveParentToEdit(null);
     }
@@ -723,11 +723,13 @@ export default function App() {
         }
       } catch (err) {
         console.error("Failed to delete matching student entities:", err);
+        return false;
       }
       
       await deleteApeeParent(userId, id);
     }
     setApeeParents(prev => prev.filter(p => p.id !== id));
+    return true;
   };
 
   const handleSaveApeeExpenseInPlace = async (expense: ApeeExpense) => {

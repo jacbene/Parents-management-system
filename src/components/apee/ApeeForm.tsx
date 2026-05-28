@@ -53,6 +53,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
   const [smsMockMsg, setSmsMockMsg] = useState<string | null>(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [isSavedJustNow, setIsSavedJustNow] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Sync provider selection when payment method changes
   useEffect(() => {
@@ -211,12 +212,17 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
       updatedAt: new Date().toISOString(),
     };
 
-    const savedSuccessfully = await onSaveParent(parentPayload);
-    if (savedSuccessfully) {
-      setSuccessMsg(activeParentToEdit ? 'Fiche parent mise à jour avec succès !' : 'Parent et cotisation enregistrés avec succès !');
-      setIsSavedJustNow(true);
-      setShowReceiptModal(true);
-      setTimeout(() => setSuccessMsg(null), 5000);
+    setIsSaving(true);
+    try {
+      const savedSuccessfully = await onSaveParent(parentPayload);
+      if (savedSuccessfully) {
+        setSuccessMsg(activeParentToEdit ? 'Fiche parent mise à jour avec succès !' : 'Parent et cotisation enregistrés avec succès !');
+        setIsSavedJustNow(true);
+        setShowReceiptModal(true);
+        setTimeout(() => setSuccessMsg(null), 5000);
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -603,7 +609,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
                     <label className="text-[9px] font-bold text-slate-500 uppercase">Nom de l'élève {idx + 1}</label>
                     <input
                       type="text"
-                      required
+                      required={idx === 0}
                       placeholder="Nom et prénoms de l'élève"
                       value={student.name}
                       onChange={(e) => handleStudentChange(idx, 'name', e.target.value)}
@@ -880,9 +886,21 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
 
             <button
               type="submit"
-              className="w-full text-center bg-slate-900 border border-slate-800 hover:border-black text-white font-bold rounded-xl py-3 text-xs uppercase tracking-wide cursor-pointer shadow-md hover:bg-black transition"
+              disabled={isSaving}
+              className={`w-full text-center border text-white font-bold rounded-xl py-3 text-xs uppercase tracking-wide transition shadow-md ${
+                isSaving 
+                  ? 'bg-slate-400 border-slate-350 cursor-not-allowed' 
+                  : 'bg-slate-900 border-slate-800 hover:border-black hover:bg-black cursor-pointer'
+              }`}
             >
-              🚀 {activeParentToEdit ? 'Enregistrer les Modifications' : 'Enregistrer la Fiche Cotisation'}
+              {isSaving ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="animate-spin inline-block h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
+                  Enregistrement...
+                </span>
+              ) : (
+                <>🚀 {activeParentToEdit ? 'Enregistrer les Modifications' : 'Enregistrer la Fiche Cotisation'}</>
+              )}
             </button>
           </div>
 
