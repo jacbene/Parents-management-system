@@ -43,12 +43,8 @@ export default function ApeeSearch({ parents, onEditParentRequest, onDeleteParen
     if (confirm("Êtes-vous sûr de vouloir supprimer définitivement ce parent d'élève ainsi que l'ensemble de ses cotisations ? Cette action est irréversible.")) {
       setIsDeleting(true);
       try {
-        const res = onDeleteParent(id);
-        let success = true;
-        if (res && res instanceof Promise) {
-          success = await res;
-        }
-        if (success) {
+        const success = await onDeleteParent(id);
+        if (success !== false) {
           if (selectedParentId === id) {
             setSelectedParentId(null);
           }
