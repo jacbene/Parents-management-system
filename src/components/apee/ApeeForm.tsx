@@ -90,7 +90,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
     setParentPhone('');
     setParentAddress('');
     setParentEmail('');
-    setStudents([{ name: '', classRoom: defaultClassroom }]);
+    setStudents([{ name: '', classRoom: defaultClassroom, dob: '' }]);
     setNote('');
     setPayments([]);
     setPayAmount(0);
@@ -101,7 +101,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
   };
 
   const handleAddStudent = () => {
-    setStudents([...students, { name: '', classRoom: defaultClassroom }]);
+    setStudents([...students, { name: '', classRoom: defaultClassroom, dob: '' }]);
   };
 
   const handleRemoveStudent = (index: number) => {
@@ -598,7 +598,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
 
             <div className="space-y-3 pt-2">
               {students.map((student, idx) => (
-                <div key={idx} className="flex gap-2 items-end bg-white p-3 rounded-xl border border-slate-150 relative group">
+                <div key={idx} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-end bg-white p-3.5 rounded-xl border border-slate-150 relative group">
                   <div className="flex-1 space-y-1">
                     <label className="text-[9px] font-bold text-slate-500 uppercase">Nom de l'élève {idx + 1}</label>
                     <input
@@ -610,7 +610,7 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
                       className="w-full px-3 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-indigo-500"
                     />
                   </div>
-                  <div className="w-36 space-y-1">
+                  <div className="sm:w-32 space-y-1">
                     <label className="text-[9px] font-bold text-slate-500 uppercase">Classe</label>
                     <select
                       value={student.classRoom}
@@ -624,10 +624,21 @@ export default function ApeeForm({ settings, onSaveParent, activeParentToEdit, o
                       ))}
                     </select>
                   </div>
+                  <div className="sm:w-36 space-y-1">
+                    <label className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1">
+                      <Calendar className="h-2.5 w-2.5 text-indigo-500" /> Naissance
+                    </label>
+                    <input
+                      type="date"
+                      value={student.dob || ''}
+                      onChange={(e) => handleStudentChange(idx, 'dob', e.target.value)}
+                      className="w-full px-2 py-1 text-xs border border-slate-200 rounded-lg focus:outline-indigo-500 bg-slate-50 text-slate-800"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleRemoveStudent(idx)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer shrink-0 border border-transparent hover:border-red-100"
+                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer shrink-0 border border-transparent hover:border-red-100 flex items-center justify-center self-end sm:self-auto h-8 sm:h-auto"
                     title="Supprimer l'élève"
                   >
                     <Trash2 className="h-4 w-4" />

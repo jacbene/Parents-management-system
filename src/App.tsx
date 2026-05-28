@@ -665,7 +665,7 @@ export default function App() {
               avatar: baseStudent?.avatar || (idx % 2 === 0 ? '👦' : '👧'),
               teacherName: baseStudent?.teacherName || 'Mme Sophie Laurent',
               teacherEmail: baseStudent?.teacherEmail || 'sophie.laurent@pasma.sys',
-              dob: baseStudent?.dob || '2017-06-15',
+              dob: linkedStu.dob || baseStudent?.dob || '2017-06-15',
               gradesValidated: baseStudent?.gradesValidated ?? false,
               attendanceValidated: baseStudent?.attendanceValidated ?? false
             };

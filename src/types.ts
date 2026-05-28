@@ -129,6 +129,7 @@ export interface Invoice {
 export interface ApeeStudentLink {
   name: string;
   classRoom: string;
+  dob?: string;
 }
 
 export interface ApeePaymentItem {
